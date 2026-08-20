@@ -50,17 +50,6 @@ La lealtad afectiva fue evaluada mediante tres afirmaciones:
 
 A partir de estos nueve ítems se realizará un **análisis factorial exploratorio** con el objetivo de determinar si las variables pueden resumirse en un número menor de factores subyacentes y evaluar si la estructura obtenida coincide con las dimensiones teóricas de **lealtad cognitiva** y **lealtad afectiva**.
 
-```{python}
-import sys
-
-print("Python funciona ✅")
-print("Versión:", sys.version)
-print("Ejecutable:", sys.executable)
-```
-
-
-
-
 
 
 ### Carga de paquetes y datos 
