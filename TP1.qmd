@@ -1,0 +1,304 @@
+---
+title: "Trabajo Practico 1: Mapas perceptuales y Análisis Factorial"
+subtitle: "Maestría en Generación y Análisis de Información Estadística - UNTREF"
+author: "Andrea Gomez Vargas & Karen Ulloa" 
+lang: es
+date: "08/24/2026"
+date-format: "DD/MM/YYYY"
+format:
+  pdf:
+    toc: true
+    number-sections: false
+    colorlinks: true
+editor: visual
+jupyter: estadistica-aplicada
+---
+
+\pagebreak
+
+## Caso de estudio: lealtad de consumidores
+
+El objetivo de este análisis es identificar la estructura subyacente en un conjunto de ítems utilizados para medir la **lealtad de los consumidores hacia una marca de zapatillas**.
+
+La empresa *Shoetas* desea evaluar el grado de lealtad de sus consumidores. Para ello, se entrevistó mediante un cuestionario a **189 personas** en una tienda de artículos deportivos.
+
+El estudio considera inicialmente dos dimensiones de la lealtad: **lealtad cognitiva** y **lealtad afectiva**. Todos los ítems fueron medidos mediante una escala Likert de cinco puntos, donde:
+
+- **1 = completamente en desacuerdo**
+- **5 = completamente de acuerdo**
+
+### Lealtad cognitiva
+
+La lealtad cognitiva fue evaluada mediante seis afirmaciones:
+
+- **CLOY1:** Es preferible utilizar las zapatillas Shoetas.
+- **CLOY2:** Las características generales de las zapatillas Shoetas corresponden con mis expectativas.
+- **CLOY3:** Si alguien me propusiera utilizar otra marca de zapatillas, continuaría utilizando Shoetas por su diseño.
+- **CLOY4:** Si alguien me propusiera utilizar otra marca de zapatillas, continuaría utilizando Shoetas por su durabilidad.
+- **CLOY5:** Si alguien me propusiera utilizar otra marca de zapatillas, continuaría utilizando Shoetas por su calidad.
+- **CLOY6:** Si alguien me propusiera utilizar otra marca de zapatillas, continuaría utilizando Shoetas por su precio.
+
+### Lealtad afectiva
+
+La lealtad afectiva fue evaluada mediante tres afirmaciones:
+
+- **ALOY1:** Me gustan las zapatillas Shoetas más que otras zapatillas.
+- **ALOY2:** Me gustan las características de mis zapatillas Shoetas.
+- **ALOY3:** Tengo una actitud positiva hacia las zapatillas Shoetas.
+
+## Objetivo del análisis
+
+A partir de estos nueve ítems se realizará un **análisis factorial exploratorio** con el objetivo de determinar si las variables pueden resumirse en un número menor de factores subyacentes y evaluar si la estructura obtenida coincide con las dimensiones teóricas de **lealtad cognitiva** y **lealtad afectiva**.
+
+```{python}
+import sys
+
+print("Python funciona ✅")
+print("Versión:", sys.version)
+print("Ejecutable:", sys.executable)
+```
+
+
+
+
+
+
+### Carga de paquetes y datos 
+
+
+
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from factor_analyzer import FactorAnalyzer
+from factor_analyzer.factor_analyzer import (
+    calculate_bartlett_sphericity,
+    calculate_kmo
+)
+```
+
+
+```{python}
+# Ruta del archivo
+Loyalty = "data/Loyalty.xls"
+
+# Leer archivo Excel
+df = pd.read_excel(Loyalty)
+```
+
+## Exploración inicial
+
+```{python}
+# Ver las primeras filas
+print("Primeras filas de la base:")
+display(df.head())
+
+# Dimensiones
+print("\nDimensiones de la base:")
+print(df.shape)
+
+# Nombres de las variables
+print("\nVariables:")
+print(df.columns.tolist())
+
+# Información general
+print("\nInformación de la base:")
+df.info()
+```
+
+## Selección de variables
+
+```{python}
+variables = [
+    "ALOY1", "ALOY2", "ALOY3",
+    "CLOY1", "CLOY2", "CLOY3",
+    "CLOY4", "CLOY5", "CLOY6"
+]
+
+datos = df[variables].copy()
+```
+
+## Test de esfericidad de Bartlett
+
+```{python}
+chi_square, p_value = calculate_bartlett_sphericity(datos)
+
+print("TEST DE ESFERICIDAD DE BARTLETT")
+print("--------------------------------")
+print("Chi-cuadrado:", round(chi_square, 3))
+print("p-value:", p_value)
+```
+
+## Medida de adecuación muestral KMO
+
+```{python}
+kmo_variables, kmo_total = calculate_kmo(datos)
+
+print("KMO")
+print("--------------------------------")
+print("KMO global:", round(kmo_total, 3))
+
+print("\nKMO por variable:")
+
+kmo_df = pd.DataFrame({
+    "Variable": variables,
+    "KMO": kmo_variables
+})
+
+display(kmo_df.round(3))
+```
+
+## Matriz de correlaciones
+
+```{python}
+matriz_correlacion = datos.corr()
+
+print("MATRIZ DE CORRELACIONES")
+display(matriz_correlacion.round(3))
+```
+
+
+```{python}
+fig, ax = plt.subplots(figsize=(9, 7))
+
+im = ax.imshow(
+    matriz_correlacion,
+    vmin=-1,
+    vmax=1,
+    cmap="PuOr"
+)
+
+ax.set_xticks(range(len(matriz_correlacion.columns)))
+ax.set_yticks(range(len(matriz_correlacion.columns)))
+
+ax.set_xticklabels(
+    matriz_correlacion.columns,
+    rotation=45,
+    ha="right"
+)
+
+ax.set_yticklabels(matriz_correlacion.columns)
+
+for i in range(len(matriz_correlacion.columns)):
+    for j in range(len(matriz_correlacion.columns)):
+        ax.text(
+            j,
+            i,
+            f"{matriz_correlacion.iloc[i, j]:.2f}",
+            ha="center",
+            va="center"
+        )
+
+fig.colorbar(im, ax=ax, label="Correlación")
+
+ax.set_title("Matriz de correlaciones")
+
+plt.tight_layout()
+plt.show()
+```
+
+## Autovalores
+
+```{python}
+fa_inicial = FactorAnalyzer(
+    n_factors=9,
+    rotation=None,
+    method="principal"
+)
+
+fa_inicial.fit(datos)
+
+eigenvalues, _ = fa_inicial.get_eigenvalues()
+
+tabla_autovalores = pd.DataFrame({
+    "Factor": range(1, len(eigenvalues) + 1),
+    "Autovalor": eigenvalues
+})
+
+display(tabla_autovalores.round(3))
+```
+
+## Gráfico de sedimentación
+
+```{python}
+plt.figure(figsize=(8, 5))
+
+plt.plot(
+    range(1, len(eigenvalues) + 1),
+    eigenvalues,
+    marker="o"
+)
+
+plt.axhline(y=1, linestyle="--")
+
+plt.xlabel("Factor")
+plt.ylabel("Autovalor")
+plt.title("Scree Plot - Loyalty")
+
+plt.xticks(range(1, len(eigenvalues) + 1))
+plt.grid(alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+A partir del gráfico de sedimentación se observa aproximadamente:
+
+- Factor 1: autovalor ≈ 5,5
+- Factor 2: autovalor ≈ 1,6
+- Factor 3 en adelante: autovalores menores que 1.
+
+## Análisis factorial con dos factores
+
+```{python}
+fa = FactorAnalyzer(
+    n_factors=2,
+    rotation="varimax",
+    method="principal"
+)
+
+fa.fit(datos)
+```
+
+## Matriz de cargas factoriales rotadas
+
+```{python}
+cargas = pd.DataFrame(
+    fa.loadings_,
+    index=variables,
+    columns=["Factor 1", "Factor 2"]
+)
+
+print("MATRIZ DE CARGAS FACTORIALES ROTADAS")
+display(cargas.round(3))
+```
+
+## Comunalidades
+
+```{python}
+comunalidades = pd.DataFrame({
+    "Variable": variables,
+    "Comunalidad": fa.get_communalities()
+})
+
+print("COMUNALIDADES")
+display(comunalidades.round(3))
+```
+
+## Varianza explicada
+
+```{python}
+varianza = fa.get_factor_variance()
+
+tabla_varianza = pd.DataFrame({
+    "Factor": ["Factor 1", "Factor 2"],
+    "SS Loadings": varianza[0],
+    "Proporción de varianza": varianza[1],
+    "Varianza acumulada": varianza[2]
+})
+
+print("VARIANZA EXPLICADA")
+display(tabla_varianza.round(3))
+```

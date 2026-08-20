@@ -1,6 +1,31 @@
-.Rproj.user
+# R / RStudio
+.Rproj.user/
 .Rhistory
-.Rdata
+.RData
+.Ruserdata
 .httr-oauth
+
+# Configuración local / secretos
+.Renviron
+.env
+
+# Python - entorno virtual
+.venv/
+
+# Python - cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Quarto
+.quarto/
+*_files/
+
+# Sistema operativo
 .DS_Store
-.quarto
+Thumbs.db
