@@ -1,20 +1,24 @@
 ---
 title: "Trabajo Practico 1: Mapas perceptuales y Análisis Factorial"
 subtitle: "Maestría en Generación y Análisis de Información Estadística - UNTREF"
-author: "Andrea Gomez Vargas & Karen Ulloa" 
+author: "Andrea Gomez Vargas & Karen Ulloa"
 lang: es
 date: "08/24/2026"
 date-format: "DD/MM/YYYY"
 format:
   pdf:
-    toc: true
+    toc: TRUE
     number-sections: false
     colorlinks: true
+  docx:
+    toc: true
 editor: visual
 jupyter: estadistica-aplicada
 ---
 
-\pagebreak
+\newpage
+
+
 
 ## Caso de estudio: lealtad de consumidores
 
@@ -50,10 +54,14 @@ La lealtad afectiva fue evaluada mediante tres afirmaciones:
 
 A partir de estos nueve ítems se realizará un **análisis factorial exploratorio** con el objetivo de determinar si las variables pueden resumirse en un número menor de factores subyacentes y evaluar si la estructura obtenida coincide con las dimensiones teóricas de **lealtad cognitiva** y **lealtad afectiva**.
 
+El análisis comienza con una exploración inicial de la base de datos, con el objetivo de verificar su estructura, el tipo de variables disponibles y la presencia de valores faltantes. A continuación, se seleccionan los nueve ítems vinculados con la lealtad de los consumidores, excluyendo la variable identificadora.
+
+Sobre este conjunto de variables se calculan estadísticos descriptivos y la matriz de correlaciones. Posteriormente, se evalúa la adecuación de los datos para la aplicación de un análisis factorial mediante el test de esfericidad de Bartlett y el índice KMO.
+
+Una vez verificada la pertinencia del análisis factorial, se determina el número de factores a retener mediante el análisis de autovalores y el gráfico de sedimentación. Finalmente, se estima una solución factorial con rotación Varimax y se analizan las cargas factoriales, las comunalidades y la proporción de varianza explicada, con el objetivo de evaluar si la estructura obtenida reproduce las dimensiones teóricas de lealtad cognitiva y afectiva.
 
 
-### Carga de paquetes y datos 
-
+## Paquetes y datos de trabajo
 
 
 ```{python}
@@ -70,32 +78,35 @@ from factor_analyzer.factor_analyzer import (
 
 
 ```{python}
-# Ruta del archivo
 Loyalty = "data/Loyalty.xls"
 
-# Leer archivo Excel
 df = pd.read_excel(Loyalty)
 ```
 
+\newpage
+
+
 ## Exploración inicial
 
+
+- Información general de la base
+
 ```{python}
-# Ver las primeras filas
-print("Primeras filas de la base:")
-display(df.head())
-
-# Dimensiones
-print("\nDimensiones de la base:")
-print(df.shape)
-
-# Nombres de las variables
-print("\nVariables:")
-print(df.columns.tolist())
-
-# Información general
-print("\nInformación de la base:")
 df.info()
 ```
+
+
+- Primeras filas de la base
+
+```{python}
+display(df.head().style.hide(axis="index"))
+```
+
+La base contiene **189 observaciones y 10 variables**. Nueve de ellas corresponden a los ítems utilizados para medir la lealtad cognitiva y afectiva, mientras que la variable `id` funciona únicamente como identificador de cada caso.
+
+La exploración inicial muestra que todas las variables se encuentran almacenadas como valores numéricos enteros y que no se registran valores faltantes. Por lo tanto, no es necesario realizar un tratamiento previo de datos ausentes antes de continuar con el análisis.
+
+
 
 ## Selección de variables
 
@@ -109,45 +120,91 @@ variables = [
 datos = df[variables].copy()
 ```
 
+Para el análisis se seleccionaron los nueve ítems de lealtad (ALOY1–ALOY3 y CLOY1–CLOY6), excluyendo la variable id, ya que esta cumple únicamente una función identificadora y no representa una característica sustantiva de los consumidores.
+
+## Estadísticos descriptivos
+
+```{python}
+descriptivos = datos.describe().T
+
+descriptivos = descriptivos[
+    ["mean", "std", "min", "max"]
+].rename(columns={
+    "mean": "Media",
+    "std": "Desvío estándar",
+    "min": "Mínimo",
+    "max": "Máximo"
+})
+
+descriptivos["Coef. de variación"] = (
+    descriptivos["Desvío estándar"] / descriptivos["Media"]
+)
+
+display(descriptivos.round(2).style.hide(axis="index"))
+``` 
+
+Los estadísticos descriptivos muestran que las respuestas se concentran en valores relativamente altos de la escala Likert. Las medias de los ítems se ubican entre 3,78 y 4,28, mientras que los desvíos estándar oscilan entre 0,72 y 0,90. Los coeficientes de variación son bajos, entre 0,17 y 0,24, lo que indica una dispersión moderada en relación con los niveles medios observados.
+
+
+Antes de realizar el análisis factorial se evaluó si la matriz de correlaciones presentaba condiciones adecuadas para este tipo de técnica. Para ello se utilizaron el test de esfericidad de Bartlett y la medida de adecuación muestral KMO.
+
 ## Test de esfericidad de Bartlett
+
 
 ```{python}
 chi_square, p_value = calculate_bartlett_sphericity(datos)
 
-print("TEST DE ESFERICIDAD DE BARTLETT")
-print("--------------------------------")
-print("Chi-cuadrado:", round(chi_square, 3))
-print("p-value:", p_value)
+p = datos.shape[1]
+df_bartlett = p * (p - 1) // 2
+
+resultado_bartlett = pd.DataFrame({
+    "Estadístico": ["Chi-cuadrado", "Grados de libertad", "p-value"],
+    "Valor": [
+        f"{chi_square:.2f}",
+        f"{df_bartlett}",
+        f"{p_value:.2e}"]
+})
+
+display(resultado_bartlett.style.hide(axis="index"))
 ```
+
+El test de Bartlett resultó estadísticamente significativo (χ² = 1458,09; gl = 36; p < 0,001), por lo que se rechaza la hipótesis nula de que la matriz de correlaciones sea una matriz identidad. Esto indica que existen asociaciones suficientes entre los ítems como para considerar una estructura factorial subyacente.
+
 
 ## Medida de adecuación muestral KMO
 
+- KMO 
+
 ```{python}
 kmo_variables, kmo_total = calculate_kmo(datos)
-
-print("KMO")
-print("--------------------------------")
 print("KMO global:", round(kmo_total, 3))
+```
 
-print("\nKMO por variable:")
+- KMO por variable
 
+```{python}
 kmo_df = pd.DataFrame({
     "Variable": variables,
     "KMO": kmo_variables
 })
 
-display(kmo_df.round(3))
+display(kmo_df.round(3).style.hide(axis="index"))
 ```
 
+El test de esfericidad de Bartlett resultó estadísticamente significativo (χ² = 1458,09; gl = 36; p < 0,001), por lo que se rechaza la hipótesis nula de ausencia de correlaciones entre las variables. Asimismo, el índice KMO global fue de 0,865, indicando una buena adecuación muestral. En conjunto, ambos resultados respaldan la aplicación del análisis factorial a los datos.
+
+
 ## Matriz de correlaciones
+
+- Tabla
 
 ```{python}
 matriz_correlacion = datos.corr()
 
-print("MATRIZ DE CORRELACIONES")
-display(matriz_correlacion.round(3))
+display(matriz_correlacion.round(3).style.hide(axis="index"))
 ```
 
+- Gráfico 
 
 ```{python}
 fig, ax = plt.subplots(figsize=(9, 7))
@@ -156,7 +213,7 @@ im = ax.imshow(
     matriz_correlacion,
     vmin=-1,
     vmax=1,
-    cmap="PuOr"
+    cmap="PRGn"
 )
 
 ax.set_xticks(range(len(matriz_correlacion.columns)))
@@ -188,9 +245,18 @@ plt.tight_layout()
 plt.show()
 ```
 
+
+La matriz de correlaciones muestra asociaciones positivas entre los nueve ítems analizados. Se observan correlaciones especialmente elevadas entre los indicadores de lealtad afectiva (ALOY1–ALOY3) y, por otro lado, entre varios de los indicadores de lealtad cognitiva (CLOY1–CLOY5). Esto sugiere la posible existencia de grupos de variables con patrones de asociación diferenciados.
+
+Asimismo, CLOY6 presenta correlaciones particularmente altas con los indicadores afectivos, especialmente con ALOY2 y ALOY3, anticipando un comportamiento diferente al del resto de los ítems cognitivos.
+
+\newpage
+
 ## Autovalores
 
 ```{python}
+#| warning: false
+
 fa_inicial = FactorAnalyzer(
     n_factors=9,
     rotation=None,
@@ -206,7 +272,7 @@ tabla_autovalores = pd.DataFrame({
     "Autovalor": eigenvalues
 })
 
-display(tabla_autovalores.round(3))
+display(tabla_autovalores.round(3).style.hide(axis="index"))
 ```
 
 ## Gráfico de sedimentación
@@ -239,9 +305,15 @@ A partir del gráfico de sedimentación se observa aproximadamente:
 - Factor 2: autovalor ≈ 1,6
 - Factor 3 en adelante: autovalores menores que 1.
 
+
+Tanto el criterio de autovalores mayores que 1 como la inspección del gráfico de sedimentación sugieren la retención de dos factores. Los dos primeros presentan autovalores de 5,510 y 1,624, mientras que a partir del tercer factor los valores son inferiores a 1. En consecuencia, se adopta una solución factorial de dos dimensiones.
+
 ## Análisis factorial con dos factores
 
 ```{python}
+#| warning: false
+
+
 fa = FactorAnalyzer(
     n_factors=2,
     rotation="varimax",
@@ -260,9 +332,12 @@ cargas = pd.DataFrame(
     columns=["Factor 1", "Factor 2"]
 )
 
-print("MATRIZ DE CARGAS FACTORIALES ROTADAS")
-display(cargas.round(3))
+display(cargas.round(3).style.hide(axis="index"))
 ```
+
+
+El Factor 1 se encuentra claramente asociado con cinco de los seis indicadores de lealtad cognitiva (CLOY1–CLOY5). El Factor 2 está definido principalmente por los tres indicadores de lealtad afectiva (ALOY1–ALOY3), aunque también incorpora fuertemente a CLOY6. Por lo tanto, la estructura empírica reproduce en gran medida las dos dimensiones teóricas propuestas, pero no de manera perfecta debido al comportamiento particular de CLOY6.
+
 
 ## Comunalidades
 
@@ -272,9 +347,11 @@ comunalidades = pd.DataFrame({
     "Comunalidad": fa.get_communalities()
 })
 
-print("COMUNALIDADES")
-display(comunalidades.round(3))
+display(comunalidades.round(3).style.hide(axis="index"))
 ```
+
+Las comunalidades presentan valores entre 0,751 y 0,847. Esto indica que los dos factores retenidos explican una proporción elevada de la variabilidad de cada una de las nueve variables, sin observarse variables escasamente representadas por la solución factorial.
+
 
 ## Varianza explicada
 
@@ -288,6 +365,20 @@ tabla_varianza = pd.DataFrame({
     "Varianza acumulada": varianza[2]
 })
 
-print("VARIANZA EXPLICADA")
-display(tabla_varianza.round(3))
+display(tabla_varianza.round(3).style.hide(axis="index"))
 ```
+
+
+El Factor 1 explica el 43,4 % de la varianza y el Factor 2 el 35,9 %. En conjunto, ambos factores explican el 79,3 % de la varianza total, lo que indica una elevada capacidad de síntesis de la solución factorial obtenida.
+
+
+## Conclusiones
+
+El análisis factorial exploratorio aplicado a los nueve indicadores de lealtad permitió identificar una estructura subyacente de dos factores. La aplicación del test de Bartlett y del índice KMO confirmó previamente que la matriz de datos resultaba adecuada para este tipo de análisis.
+
+La selección de dos factores fue respaldada tanto por el criterio de autovalores mayores que uno como por el gráfico de sedimentación. Luego de la rotación Varimax, el primer factor quedó definido principalmente por CLOY1–CLOY5, mientras que el segundo estuvo asociado principalmente con ALOY1–ALOY3.
+
+Esta estructura resulta ampliamente consistente con las dimensiones teóricas de lealtad cognitiva y afectiva planteadas inicialmente. Sin embargo, CLOY6 presentó un comportamiento diferente del esperado, al mostrar una carga elevada sobre el segundo factor. Este resultado sugiere que, en la muestra analizada, el ítem relacionado con la permanencia en la marca por su precio se encuentra empíricamente más asociado con la segunda dimensión que con los restantes indicadores cognitivos.
+
+Finalmente, los dos factores explican conjuntamente el 79,3 % de la varianza total, y todas las variables presentan comunalidades superiores a 0,75. En consecuencia, la solución factorial de dos dimensiones ofrece una representación parsimoniosa y adecuada de la estructura de relaciones existente entre los nueve indicadores de lealtad.
+
