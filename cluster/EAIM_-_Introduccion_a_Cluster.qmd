@@ -1,0 +1,213 @@
+---
+title: "Cluster introducción"
+format: html
+editor: visual
+---
+
+#### Seteo
+
+Por lo general, siempre se comienza con un "seteo" de opciones dentro de Rstudio, esto involucra:
+
+1.Limpiar todos los objetos en el "medio"
+
+```{r}
+rm(list=ls())
+```
+
+2.Definir la carpeta de trabajo donde esta la sintaxis, bases varias y donde pueden guardarse los resultados . Recordar que la barra inclina a la derecha y no a la izquierda .Deben personalizar lo escrito entre paréntesis
+
+```{r}
+setwd("~/aa/")
+```
+
+3.Guardar las opciones gráficas básicas
+
+```{r}
+#| echo: false
+oldpar<-par(no.readonly = TRUE)
+```
+
+4\. Acá definimos la cantidad de dígitos a usar y sacamos la notación científica
+
+```{r}
+options("scipen"=999, "digits"=3)
+```
+
+#### Instalación y carga de las librerías necesarias
+
+**Instalación:** Solo es necesario instalar los paquetes una vez, luego solo sera necesario activarlo install.packages(c("cluster","NbClust"))
+
+```{r}
+{library("readxl") 
+library("factoextra") #Para distancias y gr?ficos 
+library("cluster") #Para distancias 
+library("NbClust") #Para numero de clusters 
+library("plotly") #Para grafico 3D 
+  }
+```
+
+#### Carga de Bases
+
+Como base pequeña usamos "cabra"
+
+```{r}
+cabra<-as.data.frame(read_xlsx("Ejemplos_Cluster_2023.xlsx", sheet = "Cuantitativas",range = "b2:c9",col_names = F)) 
+colnames(cabra)<-c("Leche","Queso") 
+head(cabra)
+```
+
+#### Análisis de la base de ejemplo
+
+Calculamos la Distancia Euclidea entre las observaciones \
+
+```{r}
+distE <- get_dist(x = cabra, #Datos sobre los cuales trabajar 
+        stand=F, #T para datos estandarizados 
+        method = "euclidean") #Método para distancia ()
+
+distE
+```
+
+Calculamos las distancia usando Manhattan
+
+```{r}
+distM <- get_dist(x = cabra, #Datos sobre los cuales trabajar 
+          stand=F, #T para datos estandarizados 
+          method = "manhattan") #M?todo para distancia () 
+distM
+```
+
+Calculamos las distancia usando Minkowski
+
+```{r}
+distMi <- get_dist(x =cabra, #Datos sobre los cuales trabajar 
+          stand=F, #T para datos estandarizados 
+          method = "minkowski") #M?todo para distancia () 
+distMi
+```
+
+¿Que pasa si cambiamos la unidad de medida de una de las variables? Veamos
+
+```{r}
+cabra2<-cabra 
+cabra2$Leche<-cabra2$Leche*100  
+distEm <- get_dist(x = cabra2, #Datos sobre los cuales trabajar          
+        stand=F, #T para datos estandarizados          
+        method = "euclidean") #Método para distancia
+distEm
+```
+
+Comparenos con los datos originales
+
+```{r}
+distE
+```
+
+Para corregir el problema de las escalas estandarizamos
+
+```{r}
+distE_e <- get_dist(x = cabra, #Datos sobre los cuales trabajar 
+                 stand=T, #T para datos estandarizados 
+                 method = "euclidean") #Método para distancia ()
+
+distE_e
+```
+
+Repetimos el procedimiento sobre los valores estandarizados
+
+Calculamos las distancia usando Manhattan sobre datos estandarizados
+
+```{r}
+distM_e <- get_dist(x = cabra, 
+          stand=T,
+                    method = "manhattan") 
+distM_e
+```
+
+Calculamos las distancia usando Manhattan sobre datos estandarizados
+
+```{r}
+distM_e <- get_dist(x = cabra,            stand=T,           method = "manhattan")  
+distM_e
+```
+
+Calculamos las distancia usando Minkowski sobre datos estandarizados
+
+```{r}
+distMi_e <- get_dist(x = cabra, 
+            stand=T,
+            method = "minkowski") 
+distMi_e
+```
+
+Vamos a usar otra función del paquete base de R para el calculo de medidas
+
+Para Minkowski debemos determinar el valor de p que es la potencia
+
+```{r}
+dist <- dist(x = cabra, #Datos sobre los cuales trabajar 
+        method = "euclidean", #M?todo para distancia () 
+        p=2) #Potencia para minkowski 
+dist 
+#Armamos los clusters 
+hc_completo <- hclust(d = dist(x = cabra, method = "euclidean"), method = "complete")
+```
+
+Hacemos un dendograma
+
+```{r}
+fviz_dend(x = hc_completo, k = 3, cex = 0.9,lwd=1) + geom_hline(yintercept = 0, linetype = "dashed") + labs(title = "Agrupamiento Jerarquico Cabras", subtitle = "Distancia Euclidea, Agrupamiento completo, K=3")
+```
+
+#### Análisis para datos binarios
+
+```{r}
+binario<-as.data.frame(read_xlsx("Ejemplos_Cluster_2023.xlsx",sheet = "Binarias",range = "b2:f9",col_names = F)) 
+colnames(binario)<-c("Propietario","Dependencia","Bancarizado","Auto","Remoto") 
+head(binario)
+```
+
+Calculamos las distancias para una variable binaria
+
+```{r}
+do<-dist(binario, method = 'binary') 
+do 
+```
+
+Hacemos un dendograma
+
+```{r}
+hc<-hclust(do) 
+plot(hc)
+```
+
+Otro paquete que permite mas opciones de medidas sobre binarias es "vegan"
+
+Distancias que permite
+
+"manhattan", "euclidean", "canberra", "clark", "bray", "kulczynski", "jaccard", "gower", "altGower","morisita", "horn", "mountford", "raup", "binomial", "chao", "cao", "mahalanobis", "chisq" or "chord".
+
+```{r}
+library(vegan)
+```
+
+Calculamos las distancias con jaccar
+
+```{r}
+jaccar<-vegdist(binario, method = "jaccard") 
+jaccar
+```
+
+Armamos los clusters
+
+```{r}
+hccompleto <- hclust(d = do, method = "complete") 
+hccompleto$height 
+plot(hccompleto)
+```
+
+Gráfico que permite colorear los k grupos
+
+```{r}
+fviz_dend(x = hc, k = 3, cex = 0.9,lwd=1) + geom_hline(yintercept = 0, linetype = "dashed") + labs(title = "Agrupamiento Jerarquico", subtitle = "Distancia Jaccard, Agrupamiento completo, K=3")
+```

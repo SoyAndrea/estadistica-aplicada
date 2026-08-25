@@ -1,0 +1,547 @@
+---
+title: "EAIM _ Cluster parte 2"
+format: html
+editor: visual
+---
+
+#### Análisis Cluster
+
+#### Seteo
+
+Por lo general, siempre se comienza con un "seteo" de opciones dentro de Rstudio, esto involucra:
+
+Limpiar todos los objetos en el environment y los plots existentes
+
+```{r}
+rm(list=ls()) 
+while (dev.cur() > 1) dev.off()
+```
+
+Definir la carpeta de trabajo donde esta la sintaxis, bases varias y donde pueden guardarse los resultados #Recordar que la barra inclina a la derecha y no a la izquierda
+
+Deben personalizar lo escrito entre paréntesis
+
+```{r}
+setwd("~/aa/")
+```
+
+Guardar las opciones gráficas básicas
+
+```{r}
+oldpar<-par(no.readonly = TRUE)
+```
+
+Acá definimos la cantidad de dígitos a usar y sacamos la notación científica
+
+```{r}
+options("scipen"=999, "digits"=3)
+```
+
+**Instalación y carga de la librerías necesarias**
+
+Instalación: Solo es necesario instalar los paquetes una vez, luego solo sera necesario activarlo install.packages(c("cluster","NbClust"))
+
+```{r}
+{library("readxl") 
+  library("factoextra") #Para distancias y gráficos 
+  library("cluster") #Para distancias 
+  library("NbClust") #Para numero de clusters 
+  library("plotly") #Para gráfico 3D 
+  library(ggplot2) 
+  library(dplyr) }
+```
+
+#### Carga de Bases
+
+#Como base real vamos a usar la base de vinos de distintas cepas de la región de Galici
+
+Tenemos una muestra de diferentes vinos de Galicia. Algunos han sido elaborados con la variedad de uva Albariño (A) y otros con la variedad Godello (G) y hay varios vinos que se desconoce a qué variedad pertenecen (D).
+
+Se han determinado las concentraciones de diferentes ácidos orgánicos:
+
+galacturónico (gal),
+
+tartárico (tar)
+
+málico (mal)
+
+shiquímico (shi)
+
+cítrico (cit)
+
+succínico (suc). 
+
+```{r}
+datos<-as.data.frame(read_xls("Vinos_de_Galicia.xls")) 
+```
+
+Sacamos las dos cualitativas para el análisis
+
+```{r}
+dato<-datos[,-c(1,2)]
+```
+
+#### Análisis de distancias
+
+Distancias= "euclidean" "maximum" "manhattan" "canberra","binary" "minkowski" "pearson" "spearman" or "kendall".
+
+#### Vamos a usar la Distancia Euclidea e imprimimos la matriz de distancia
+
+```{r}
+dist_E <- get_dist(x = dato, #Datos sobre los cuales trabajar 
+          stand=F, #T para datos estandarizados 
+          method = "euclidean") #Metodo para distancia () # options(max.print = 3000) 
+round(as.matrix(dist_E)[1:5, 1:5], 2)
+```
+
+Podemos usar valores estandarizados con esta función
+
+```{r}
+dist_E_e <- get_dist(x = dato, #Datos sobre los cuales trabajar 
+            stand=T, #T para datos estandarizados 
+            method = "euclidean") #Metodo para distancia () 
+round(as.matrix(dist_E_e)[1:5, 1:5], 2)
+```
+
+#### Veamos con la Distancia Manhattan
+
+```{r}
+dist_M <- get_dist(x = dato, #Datos sobre los cuales trabajar 
+          stand=F, #T para datos estandarizados 
+          method = "manhattan") #Metodo para distancia () 
+round(as.matrix(dist_M)[1:5, 1:5], 2)
+```
+
+Podemos usar otra función del paquete base de R para el calculo de medidas
+
+El problema de la función es que no tiene estandarizan, para ello usamos la función anidada "scale".
+
+Para minkowski debemos determinar el valor de p que es la potencia
+
+```{r}
+dist_Mi_e <- dist(x = scale(dato), #Datos sobre los cuales trabajar 
+            method = "minkowski", #Metodo para distancia () 
+            p=2) #Potencia para minkowski
+```
+
+Comparamos resultados para verificar que son los mismos
+
+```{r}
+round(as.matrix(dist_E_e)[1:5, 1:5], 2);round(as.matrix(dist_Mi_e)[1:5, 1:5], 2)
+```
+
+round(as.matrix(dist_E_e)\[1:5, 1:5\], 2);round(as.matrix(dist_Mi_e)\[1:5, 1:5\], 2)
+
+# Análisis Cluster
+
+## No Jerárquico
+
+El método K-means clustering (NJ) (MacQueen, 1967) agrupa las observaciones en K clusters distintos, donde el número K lo determina el analista antes de ejecutar del algoritmo.
+
+K-means clustering encuentra los K mejores clusters, entendiendo como mejor cluster aquel cuya varianza interna (intra-cluster variation) sea lo más pequeña posible.
+
+#### Indicadores de cantidad de clusters
+
+#### Para una mejor comprensión ver <https://www.datanovia.com/learn/machine-learning/clustering/optimal-clusters>
+
+Veamos cuantos cluster sugiere el método silhouette para diferentes cantidades de clusters, viendo el gráfico de las distintintas cantidades de clusters
+
+```{r}
+fviz_nbclust(x = dato, FUNcluster = kmeans, #Metodo cluster: cluster::pam, cluster::clara, cluster::fanny, hcut 
+             method = "silhouette", #Metodo de calculo: silhouette, Within sum squares(WSS) "gap" 
+             k.max = 15, #Maximo de Clusters a analizar 
+             diss = get_dist(dato, method = "euclidean") #Tipo de distancia 
+             ,nstart = 50)
+```
+
+Veamos cuantos clusters sugiere si uso Within Sum Square "wss"
+
+```{r}
+fviz_nbclust(x = dato, FUNcluster = kmeans, #Metodo cluster: cluster::pam, cluster::clara, cluster::fanny, hcut 
+             method = "wss", #Metodo de calculo: silhouette, Within sum squares(WSS) "gap" 
+             k.max = 15, #Maximo de Clusters a analizar 
+             diss = get_dist(dato, method = "euclidean") #Tipo de distancia 
+             , nstart = 50)
+```
+
+Veamos cuantos clusters sugiere si uso GAP"
+
+```{r}
+fviz_nbclust(x = dato, FUNcluster = kmeans, #Metodo cluster: cluster::pam, cluster::clara, cluster::fanny, hcut 
+             method = "gap", #Metodo de calculo: silhouette, Within sum squares(WSS) "gap" 
+             k.max = 15, #Maximo de Clusters a analizar 
+             diss = get_dist(dato, method = "euclidean") #Tipo de distancia 
+             , nstart = 50)
+```
+
+Podemos pedirle a NbClust que nos analice todos los indicadores que tiene incluidos, para ello en index ponemos "alllong"
+
+```{r}
+s<-NbClust(dato, #Base de datos 
+           method = "kmeans", #Metodo, puede ser "ward.D" "ward.D2" "single" "complete" "average" "mcquitty" "median" "centroid" "kmeans". 
+           max.nc = 10, #Numero maximo de clusters a analizar 
+           distance="euclidea",#Tipo de distancia 
+           index = "alllong") #Indicadores a presentar, esto pone todos los posibles
+```
+
+Podemos ver el objeto "s" donde la primera parte se ven los valores de los indices, luego los valores criticos del indices, luego un texto donde sugiere la mejor cantidad y en \$Best.partition podemos ver a que grupo corresponde cada observación
+
+```{r}
+s
+```
+
+Usamos el objeto "Nbclust" para hacer una gráfica de frecuencia de clusters.
+
+Podremos ver que cantidad de clusters es el mas frecuente entre los diferentes métodos
+
+```{r}
+fviz_nbclust(x = s)
+```
+
+Con las distancias y la cantidad de clusters, podemos calcular el "silhouette.
+
+El coeficiente de Silueta es una métrica para evaluar la calidad del agrupamiento obtenido con algoritmos de clustering.
+
+```{r}
+km<-kmeans(x = dato, #Datos 
+           centers = 2, #Grupos 
+           nstart = 50, #Cantidad de sets aleatorios a tomar 
+           algorithm = "Hartigan-Wong") #"Hartigan-Wong", "Lloyd", "Forgy","MacQueen"
+```
+
+Podemos ver los centroide de las observaciones
+
+```{r}
+km$centers
+```
+
+Podemos ver el cluster asignado a cada observación entre los 2 definidos
+
+```{r}
+km$cluster
+```
+
+Calculamos las distancias de de cada observación al cluster mas cercano
+
+```{r}
+sil <- silhouette(km$cluster, dist(dato[, 1:6]))
+sil
+```
+
+Graficamos la silueta
+
+```{r}
+fviz_silhouette(sil)
+```
+
+Calculamos la distancia geométrica al cuadrado de cada punto respecto al centroide de su propio clúster. Es una métrica agregada por grupo.
+
+Difiere del silhoutte
+
+```{r}
+km$withinss
+```
+
+Agrego el cluster de pertenencia a mis datos y convertimos el clúster a factor
+
+```{r}
+datos$cluster_id <- km$cluster
+datos$cluster_id <- as.factor(datos$cluster_id)
+```
+
+Contamos las frecuencias por cada combinación y hacemos un gráfico de burbujas para ver la información
+
+```{r}
+datos_conteo <- datos %>% count(Etiqueta, Variedad, cluster_id)
+ggplot(datos_conteo, aes(x = Etiqueta, y = Variedad, size = n, color = cluster_id)) + geom_point(alpha = 0.7) + scale_size_continuous(range = c(3, 15)) + # Ajusta el tamaño de las burbujas 
+  theme_minimal() + labs(title = "Distribución de Clústeres por Etiqueta y Variedad", x = "Etiqueta", y = "Variedad", size = "Cantidad de datos", color = "Clúster")
+
+```
+
+Hacemos una tabla para ver si la combinación etiqueta Variedad separan los casos.
+
+```{r}
+tabla <- ftable( datos$Variedad, datos$cluster_id,datos$Etiqueta, dnn = c("Variedad", "Clúster","Etiqueta" ))
+
+print(tabla)
+```
+
+## Agrupamiento jerárquico
+
+#### Hierarchical clustering
+
+Hierarchical clustering es una alternativa a los métodos de partitioning clustering que no requiere que se pre-especifique el número de clusters. Los métodos que engloba el hierarchical clustering se subdividen en dos tipos dependiendo de la estrategia seguida para crear los grupos.
+
+Aglomerativo: se inicia con una observaciones y se agrupan
+
+Divisivo: Se toman todos y se dividen
+
+Tomamos el archivo de las distancias euclideas de los datos
+
+Agrupamos por varios métodos, Esta función no da el cluster asignado.
+
+Métodos posibles
+
+"single"= distancia menor
+
+"complete" = distancia mayor
+
+"average" = promedio de distancias
+
+"centroid" = Se calcula el centroide
+
+"ward.D",
+
+"ward.D2",
+
+"median"
+
+```{r}
+hccompleto <- hclust(d = dist_E,method = "complete") 
+hcmedia <- hclust(d = dist_E,method = "average") 
+hcmediana <- hclust(d = dist_E, method = "median") 
+hccentroi <- hclust(d = dist_E, method = "centroid")
+```
+
+Esta función realiza lo mismo pero posee un vector que es el cluster asignado a cada observación
+
+hc.metric = "euclidean", "maximum", "manhattan", "canberra", "binary" or "minkowski" #hc.method = "ward.D", "ward.D2", "single", "complete", "average", "mcquitty", "median" o "centroid"
+
+```{r}
+hkm<-hkmeans(dato, #Base
+             k=2, #Cantidad de Clusters 
+             hc.metric ="euclidean", #Método de la distancia 
+             hc.method = "complete", #Método de agrupamiento ,
+             iter.max = 100)
+```
+
+Inspeccionar el objeto resultante. Contiene tanto la información de 'hclust' como la de 'kmeans'
+
+```{r}
+names(hkm)
+```
+
+Visualizar el árbol jerárquico inicial que usó de base
+
+```{r}
+fviz_dend(hkm, rect = TRUE, show_labels = FALSE)
+```
+
+Visualizar los clústeres finales optimizados en dos dimensiones
+
+```{r}
+fviz_cluster(hkm, ellipse.type = FALSE, geom = "point")
+```
+
+Visualizar los clústeres finales optimizados en dos dimensiones
+
+```{r}
+fviz_cluster(hkm, ellipse.type = "convex", geom = "point")
+```
+
+Asegúrate de que el ID del clúster sea categórico para los colores
+
+```{r}
+datos$cluster_id <- as.factor(datos$cluster_id)
+```
+
+Si quieres identificar cada caso por su nombre o fila, crea una etiqueta
+
+```{r}
+datos$nombre_caso <- rownames(datos) # O el nombre de tu variable de texto
+```
+
+Definimos un vector con colores muy fáciles de diferenciar
+
+Puedes agregar más colores si tienes más de 4 clústeres
+
+```{r}
+colores_contraste <- c("#FF3333", "#3333FF", "#00CC44", "#E6B800")
+```
+
+Crear el gráfico interactivo 3D
+
+```{r}
+plot_ly(
+  data = datos, 
+  x = ~gal,      # <-- Cambia por tu primera variable numérica
+  y = ~tar,      # <-- Cambia por tu segunda variable numérica
+  z = ~mal,      # <-- Cambia por tu tercera variable numérica
+  color = ~cluster_id, # Los colores se asignan automáticamente por grupo
+  colors = colores_contraste,
+  text = ~nombre_caso, # Información que aparecerá al pasar el cursor
+  type = "scatter3d", # <-- Aquí aplicas tus colores personalizados
+  mode = "markers",
+  marker = list(size = 5, opacity = 0.8) # Tamaño y transparencia de los puntos
+) %>%
+  layout(
+    title = "Visualización Clúster 3D con Variables Originales",
+    scene = list(
+      xaxis = list(title = 'gal'),
+      yaxis = list(title = 'tar'),
+      zaxis = list(title = 'mal')
+    )
+  )
+```
+
+Verificación de los centros
+
+Simplemente vamos a chequear que los centros son los promedios de las variables segmentados segun el cluster asignado
+
+Por función, obtuvimos estos resultados
+
+```{r}
+km$centers 
+hkm$centers
+```
+
+Agregamos dos vectores con los cluster según el método
+
+```{r}
+datos$clusterNJ<-km$cluster 
+datos$ClusterJ<-hkm$cluster
+```
+
+Pedimos las medias para cada método
+
+Para no jerárquico
+
+```{r}
+apply(datos[,3:8],2, function(x)tapply(x,datos[,11],mean)) 
+```
+
+Para jerárquico
+
+```{r}
+apply(datos[,3:8],2, function(x)tapply(x,datos[,12],mean))
+```
+
+#### Análisis de la asignación de los clusters
+
+Verificamos el método que da mejor resultado
+
+Hay que evaluar hasta qué punto su estructura refleja las distancias originales entre observaciones.
+
+Una forma de hacerlo es empleando el coeficiente de correlación entre las distancias cophenetica del dendrograma (altura de los nodos) y la matriz de distancias original. Cuanto más cercano es el valor a 1, mejor refleja el dendrograma la verdadera similitud entre las observaciones. Valores superiores a 0.75 suelen considerarse como buenos. Esta medida puede emplearse como criterio de ayuda para escoger entre los distintos métodos de linkage. Es una medida de cuán fielmente conserva un dendrograma las distancias por pares entre los puntos de datos originales no modelados
+
+La funci?n solo sirve con objeto "hclust"
+
+```{r}
+cor_completo <-cor(x = dist_E, cophenetic(hccompleto))
+cor_media <-cor(x = dist_E, cophenetic(hcmedia))
+cor_mediana <-cor(x = dist_E, cophenetic(hcmediana)) 
+cor_centroide<-cor(x = dist_E, cophenetic(hccentroi))
+corr<-data.frame(Agrupamiento=c("Completo","Media","Mediana","Centroide"), Correlacion=c(cor_completo,cor_media,cor_mediana,cor_centroide));corr
+```
+
+Al ejecutar la línea obtendrás un número decimal entre -1 y 1:
+
+Cercano a 1 (ej. \> 0.75): Significa que el método de enlace completo (complete linkage) conservó de manera excelente la estructura original de tus datos en el árbol. Su visualización es altamente confiable.
+
+Cercano a 0: Te avisa que el árbol jerárquico está distorsionando de manera severa las distancias reales y la agrupación puede ser artificial.
+
+Análisis Silhouette
+
+Esta funcion requiere dos argumentos
+
+```{r}
+sil1<-silhouette(km$cluster #Cluster asignado 
+                ,dist_E) #Objeto con la distancia utilizada, "euclidea" en este caso
+```
+
+Vemos el valor del indicador para cada observaciones
+
+```{r}
+sil1
+```
+
+Vemos los valores para cada clusters
+
+```{r}
+summary(sil1)
+```
+
+Veamos como se calculan estos valores
+
+Son simplemente los promedios de indice Sil para cada clsuter
+
+```{r}
+tapply(sil1[,3],as.factor(sil1[,1]),mean)
+```
+
+Para una grafica mas clara, definimos la cantidad de colores a usar en función a los clusters seleccionados
+
+```{r}
+par(mfrow=c(1,1)) 
+color2<-c("blue","red") 
+color5<-c("blue","red","green4","orange","magenta") 
+plot(sil1, col = color2,main = "Silhoutte para cada clusters Kmeans" 
+     ,cex.names = 0.5) #Trazamos una linea en el valor pROmedio 
+abline(v=0.54,lwd=2,col="green4")
+
+
+```
+
+Veamos el mismo análisis para el jerárquico
+
+```{r}
+sil2<-silhouette(hkm$cluster,dist_E) 
+plot(sil2,col = color2, main = "Silhoutte para cada clusters Jerárquico" 
+                               ,cex.names = 0.5) #Trazamos una linea en el valor prOmedio 
+abline(v=0.54,lwd=2,col="green4")
+```
+
+Hacemos mas complejo anidando funciones y usando 5 clusters
+
+```{r}
+sil3<-silhouette((hkmeans(dato, k=5,hc.metric ="euclidean", hc.method = "complete",iter.max = 100))$cluster,dist_E) 
+plot(sil3, col = color5,main = "Silhoutte para cada clusters" ,cex.names = 0.5)
+```
+
+Verificamos
+
+```{r}
+summary(sil3)
+tapply(sil3[,3],as.factor(sil3[,1]),mean)
+```
+
+#### Análisis gráfico
+
+Ggráfico que permite colorear los k grupos que se define como un argumento
+
+Sacamos el argumento de numero de cluster "k" para hacer algo mas prolijo
+
+```{r}
+k<-4
+fviz_dend(x = hccompleto, 
+               k = 4, cex = 0.6,lwd=1) + geom_hline(yintercept = 5.5, 
+                                                    linetype = "dashed") + labs(title = "Agrupamiento Jerarquico", subtitle = paste0("Distancia ", hccompleto$dist.method, ", Agrupamiento ",hccompleto$method, " K=",k))
+```
+
+Gráfico de los grupos de clusters donde K se define como argumento.
+
+Esta funcion anida "cutree" para asignar los cluster en funcion de los pesos de hccompleto
+
+```{r}
+fviz_cluster(object = list(data=dato, cluster=cutree(hccompleto, k=4)), ellipse.type = "convex", repel = TRUE, show.clust.cent = FALSE, labelsize = 8) + labs(title = "Hierarchical clustering + Proyecci?n PCA", subtitle = paste0("Distancia ", hccompleto$dist.method, ", Agrupamiento ",hccompleto$method, " K=",k) ) + theme_bw() + theme(legend.position = "bottom")
+```
+
+EL PROBLEMA DE LA METODOLOGIA ES QUE LAS FUNCIONES DIRECTAMENTE DEFINEN #EL GRUPO DE PERTENENCIA DE CADA OBSERVACION SIN PODER TENER ACCESO A ESTA INFORMACION.
+
+Se puede también graficar los datos de "hkm" pero el argumento "k" ya esta fijado por la función usada
+
+```{r}
+fviz_dend(x = hkm, cex = 0.6,lwd=1) + geom_hline(yintercept = 5.5, linetype = "dashed") + labs(title = "Agrupamiento Jerarquico", subtitle = paste0("Distancia ", hkm$dist.method, ", Agrupamiento ",hkm$method, " K=",k) )
+```
+
+```{r}
+fviz_cluster(object = list(data=dato, cluster=hkm$cluster), ellipse.type = "convex", repel = TRUE, show.clust.cent = FALSE, labelsize = 8) + labs(title = "Hierarchical clustering + Proyecci?n PCA", subtitle = "Distancia euclídea, Linkage completo, K=4") + theme_bw() + theme(legend.position = "bottom")
+```
+
+LA DIFERENCIA ENTRE LOS DOS GRÁFICOS "CLUSTER" ESTA DADO POR LA ASIGNACION DE LAS OBSERVACIONES AL CLUSTER. lA PRIMERA USA LA FUNCION HKMEANS (MAS COMPLETA) Y LA SEGUNDA USA CUTREE (SOLO DA EL CLUSTER)
+
+PARA EL NO JERARQUICO, NO PUEDE HACERSE DENDOGRAMA
+
+```{r}
+fviz_cluster(object = list(data=dato, cluster=km$cluster), ellipse.type = "convex", repel = TRUE, show.clust.cent = FALSE, labelsize = 8) + labs(title = "Agrupamiento no Jerarquico + Proyecci?n PCA", subtitle = "Hartigan-Wong, K=2") + theme_bw() + theme(legend.position = "bottom")
+```
